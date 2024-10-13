@@ -57,6 +57,7 @@ resource "aws_lambda_function" "lambda" {
   filename         = data.archive_file.lambda_archive[0].output_path
   source_code_hash = data.archive_file.lambda_archive[0].output_base64sha256
 }
+
 output "arn" {
   value = local.enabled ? join("", aws_lambda_function.lambda.*.arn) : ""
 }

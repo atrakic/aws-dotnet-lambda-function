@@ -37,17 +37,17 @@ steps:
     pull: if-not-exist
     volumes:
       - name: ci
-        path: /providers.tf
+        path: /localstack.tf
     commands:
       - until curl -s http://localstack:4566/_localstack/health; do echo -n . && sleep 1; done
-      - sed -i 's/localhost/localstack/g' providers.tf
+      - sed -i 's/localhost/localstack/g' localstack.tf
 
   - name: deploy
     image: hashicorp/terraform:1.5.3
     pull: if-not-exist
     volumes:
       - name: ci
-        path: /providers.tf
+        path: /localstack.tf
     commands:
       - terraform fmt
       - terraform init -backend=false -upgrade -lock=false
