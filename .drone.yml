@@ -1,0 +1,65 @@
+---
+kind: pipeline
+type: docker
+name: localstack-ci
+
+trigger:
+  event:
+    - push
+    - pull_request
+    - custom
+  branch:
+    - main
+
+services:
+  - name: localstack
+    image: localstack/localstack
+    pull: if-not-exists
+    ports:
+      - 4556
+    #environment:
+    #  LOCALSTACK_API_KEY:
+    #    from_secret: localstack_api_key
+
+volumes:
+  - name: ci
+    temp: {}
+
+environment:
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+  AWS_DEFAULT_REGION: us-east-1
+  AWS_PAGER: "" # disable the AWS CLI pager
+
+steps:
+  - name: init
+    image: alpine/curl:3.14
+    pull: if-not-exist
+    volumes:
+      - name: ci
+        path: /providers.tf
+    commands:
+      - until curl -s http://localstack:4566/_localstack/health; do echo -n . && sleep 1; done
+      - sed -i 's/localhost/localstack/g' providers.tf
+
+  - name: deploy
+    image: hashicorp/terraform:1.5.3
+    pull: if-not-exist
+    volumes:
+      - name: ci
+        path: /providers.tf
+    commands:
+      - terraform fmt
+      - terraform init -backend=false -upgrade -lock=false
+      - terraform validate
+      - terraform plan -lock=false -input=false -var-file fixtures.tfvars
+      - terraform apply -input=true -auto-approve
+      - terraform state list
+      - terraform show
+
+  - name: integration test
+    image: amazon/aws-cli
+    pull: if-not-exist
+    commands:
+      - --endpoint-url=http://localstack:4566 sts get-caller-identity | cat -
+      - --endpoint-url=http://localhost:4566 lambda list-functions | cat -
